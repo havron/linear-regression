@@ -1,7 +1,11 @@
 // Samuel Havron <sgh7cc@virginia.edu>
 // https://www.github.com/samuelhavron
 // MIT License
-//!! WARNING: load_data function NOT COMPLETE, does not compile
+
+/* KNOWN FILE FORMAT BREAKING BUGS:
+   - one line contains only an x data point (more than one line with one point fixed)
+   - line contains more than two data points
+ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,14 +13,14 @@
 #include <string.h>
 #include <assert.h>
 #define MAX_DATA 100
+#define COLS 2
 
 // forward declarations
 struct dataSet *load_data(FILE *inputFile);
 double *linear_regression(struct dataSet *theData);
 double sqr(double x);
-double sum(double a[MAX_DATA],  double b[MAX_DATA], int opCode);
+double sum(double a[MAX_DATA], double b[MAX_DATA], int opCode, int n);
 void dataSet_clear(struct dataSet *theData);
-
 
 struct dataSet {
   double x[MAX_DATA]; // independent points
@@ -25,103 +29,142 @@ struct dataSet {
 };
 
 // Initialize the dataSet and check for input errors
-struct dataSet *dataSet_init(double x[MAX_DATA], double y[MAX_DATA]) {
+struct dataSet *dataSet_init(double x[MAX_DATA], double y[MAX_DATA], int n) {
 
-  //!! Compiling error - why?
   struct dataSet *theData = malloc(sizeof(struct dataSet));
   assert(theData != NULL);
-  
-  // Obtain the length of x and y arrays
-  int sizeX = sizeof(x) / sizeof(double);
-  int sizeY = sizeof(y) / sizeof(double);
-
-  // Check that every point x has a corresponding point y
-  if (sizeX != sizeY) {
-    printf("ERROR: unequal amount of x (%d) and y (%d) data points.\n", sizeX, sizeY);
-    dataSet_clear(theData);
-    return NULL;
-  }
-  
+ 
   // Put the int arrays into the struct
-  memcpy(theData->x, x, sizeof(x));
-  memcpy(theData->y, y, sizeof(y));
-  theData->n = sizeX;
+  int i;
+  for (i = 0; i < n; i++) {
+    *(theData->x + i) = x[i];
+    *(theData->y + i) = y[i];
+  }
+ 
+  theData->n = n;
 
   return theData;
 }
 
- // Free memory when computation is finished
+// Free memory when computation is finished
 void dataSet_clear(struct dataSet *theData) {
-    assert(theData != NULL);
-    free(theData->x);
-    free(theData->y);
-    free(theData);
+  assert(theData != NULL);
+  if(theData != NULL) free(theData);
 }
  
- /* Parses data file into x and y
-    FILE STRUCTURE IS AS FOLLOWS
-    x[0],x[1], ... ,x[n];y[0],y[1],...,y[n]
-    x and y  data points separated by commas (no spaces)
-    semicolon (;) to mark end of x points and beginning of y points
- */
-//!! WARNING: FUNCTION INCOMPLETE
+/* Parses data file into x and y
+   FILE STRUCTURE IS AS FOLLOWS
+   x[0] y[0]
+   x[1] y[1]
+   :    :
+   x[n] y[n]
+   x values are in sequential order
+*/
 struct dataSet *load_data(FILE *inputFile) {
-  
-  //!! Convert file data to a string? Does this work?
-  int ch;
-  char inputString[] = "";
-  while ((ch = fgetc(inputFile)) != EOF) {
-    strcat(inputString, (char*) fgetc(inputFile)); //!! compiling error from casting
-  }
-  
-  // Split the input stream into x and y comma separated values
-  char *xCSV = strtok(inputString, ";");
-  char *yCSV = strtok(NULL, ";");
-       	
-  //!! How to extract x and y arrays from xCSV and yCSV? 
-  //!! strtok does not accept char pointer
-  
-  double x[MAX_DATA] = {0}; //!! Placeholder
-  double y[MAX_DATA] = {0}; //!! Placeholder
+  int i, j;
+  int nx = 0, ny = 0;
+  double Xval, Yval;
+  double x[MAX_DATA];
+  double y[MAX_DATA];
 
-  // Put input into a DataSet struct
-  if (dataSet_init(x, y)) { // check for proper initialiation   
-    return dataSet_init(x, y);
-	      	      
-  } else {
-    printf("The data could not be loaded.\n");
-    return NULL;
+  for (j = 0; j < COLS - 1; j++) { // for each column (x and y)
+    for (i = 0; !feof(inputFile); i++) { // for each row
+      if (j == 0) { // x array
+	fscanf(inputFile, "%lf %lf\n", &Xval, &Yval);
+	if (i > 0 && x[i-1] >= Xval) {
+	  printf("ERROR: Data points must be in successive order of independent (x) values.\n");
+	  printf("x value (%lf) is < or = to previous x value (%lf).\n", Xval, x[i-1]);
+	  exit(1);
+	}
+	
+        x[i] = Xval;
+	nx += 1;
+	if(nx > MAX_DATA) {
+	  printf("ERROR: Data points cannot exceed %d.\n", MAX_DATA);
+	  exit(1);
+	}
+
+	if (feof(inputFile)) {
+	  clearerr(inputFile);
+	  rewind(inputFile);
+	  j = 1; // move on to y array
+	  i = -1; // index will reset to 0 with for loop increment
+	} // end of x array
+      } else if (j == 1) { // y array
+	fscanf(inputFile, "%lf %lf\n", &Xval, &Yval); 
+	y[i] = Yval;
+	ny += 1;
+	if(ny > MAX_DATA) {
+	  printf("ERROR: Data points cannot exceed %d.\n", MAX_DATA);
+	  exit(1);
+	}
+
+      } // end of y array
+    }
   }
+
+  //!TODO! Detect lone x data point: when y is 0 for a given line
+
+  // Check the amount of line numbers against the number of data points
+  clearerr(inputFile);
+  rewind(inputFile);
+  char *line = NULL;
+  size_t len = 0;
+  ssize_t read;
+  int lines = 0;
+  while((read = getline(&line, &len, inputFile)) != -1) {
+      lines += 1;
+  }
+  free(line);
+  
+  // Error detection
+  if (nx != ny) {
+    printf("ERROR: Unequal amount of x (%d) and y (%d) data points.\n", nx, ny);
+    exit(1);
+  } else if (nx == 0) {
+    printf("ERROR: No data points found. Check data format.\n");
+    exit(1);
+  } else if (nx != lines) {
+    printf("ERROR: Data format incorrect.");
+    printf(" %d lines detected and %d data points found.\n", lines, nx);
+    printf("Check data format.\n");
+    exit(1);
+  }
+  
+  printf("Loading %d data points ...\n", nx);
+  // Put input into a DataSet struct  
+  return dataSet_init(x, y, nx);
 }
 
 double *linear_regression(struct dataSet *theData) {
 
- double b; // y-intercept of best fit line
- double m; // slope of best fit line
- double r; // correlation coefficient
+  double b; // y-intercept of best fit line
+  double m; // slope of best fit line
+  double r; // correlation coefficient
 
- int n = theData->n;
- // two array inputs given to sum() to avoid NULL error
- double sumx = sum(theData->x, theData->x, 0); // sum of x, not squared
- double sumx2 = sum(theData->x, theData->x, 1); // sum of x, each x sqaured
- double sumy = sum(theData->y, theData->y, 0); //sum of y
- double sumy2 = sum(theData->y, theData->y, 1); // sum of y**2
- double sumxy = sum(theData->x, theData->y, 2); // sum of x * y
+  int n = theData->n;
+  // two array inputs given to sum() to avoid NULL error
+  double sumx = sum(theData->x, theData->x, 0, n); // sum of x, not squared
+  double sumx2 = sum(theData->x, theData->x, 1, n); // sum of x, each x sqaured
+  double sumy = sum(theData->y, theData->y, 0, n); //sum of y
+  double sumy2 = sum(theData->y, theData->y, 1, n); // sum of y**2
+  double sumxy = sum(theData->x, theData->y, 2, n); // sum of x * y
 
- // Compute least-sqaures best fit straight line.
- m = (n * sumxy - sumx * sumy) / (n * sumx2 - sqr(sumx)); // compute slope
- b = (sumy * sumx2 - sumx * sumxy) / (n * sumx2 - sqr(sumx));
- r = (sumxy - sumx * sumy / n) / sqrt((sumx2 - sqr(sumx) / n) * (sumy2 - sqr(sumy) / n));
+  // Compute least-sqaures best fit straight line.
+  m = (n * sumxy - sumx * sumy) / (n * sumx2 - sqr(sumx)); // compute slope
+  b = (sumy * sumx2 - sumx * sumxy) / (n * sumx2 - sqr(sumx));
+  r = (sumxy - sumx * sumy / n) / sqrt((sumx2 - sqr(sumx) / n) * (sumy2 - sqr(sumy) / n));
 
- double *result = malloc(sizeof(double) * 3);
- *result = m;
- *(result + 1) = b;
- *(result + 2) = r;
- return result;
+  double *result = malloc(sizeof(double) * 3);
+  *result = m;
+  *(result + 1) = b;
+  *(result + 2) = r;
+  return result;
 }
 
 int main(int argc, char *argv[]) {
   printf("Linear Regression\n");
+  printf("=================\n\n");
 
   // Check for a filename
   if (argc == 2) {
@@ -130,17 +173,22 @@ int main(int argc, char *argv[]) {
     // Handle file not found error
     if (input == NULL) {
       perror(argv[1]);
+      exit(1);
 
     } else {
       struct dataSet *theData = load_data(input);
-      
+      fclose(input);
+     
       if (theData != NULL) {
 	double *linReg = linear_regression(theData);
 	printf("\nSlope   \tm = %15.6e\n", *linReg); // print slope
 	printf("y-intercept\tb = %15.6e\n",*(linReg+1)); // print y-intercept
 	printf("Correlation\tr = %15.6e\n", *(linReg+2)); // print correlation
 	dataSet_clear(theData); // free struct
-	free(linReg);
+	if(linReg != NULL) free(linReg);
+      } else {
+	printf("ERROR: The data did not load (NULL).\n");
+	exit(1);
       }
     }
 
@@ -151,33 +199,29 @@ int main(int argc, char *argv[]) {
   return 0;
 }
 
-
-//! should have some testing code
-
-
 double sqr(double x) {
-    return x * x;
+  return x * x;
 }
 
 // opCodes: sum of a[] (0), sum of sqr(a[]) (1),
 // sum of a[] * b[] (2)
-double sum(double a[MAX_DATA], double b[MAX_DATA], int opCode) {
+double sum(double a[MAX_DATA], double b[MAX_DATA], int opCode, int n) {
   double sum = 0;
   int i = 0;
 
   if (opCode == 0) {
-    for (i = 0; i < (sizeof(a) / sizeof(double)); i++) {
+    for (i = 0; i < n; i++) {
       sum += a[i];
     }
 
   } else if (opCode == 1) {
-    for (i = 0; i < (sizeof(a) / sizeof(double)); i++) {
+    for (i = 0; i < n; i++) {
       sum += sqr(a[i]);
     }
 
   } else if (opCode == 2) {
-     for (i = 0; i < (sizeof(a) / sizeof(double)); i++) {
-       sum += a[i] * b[i]; // a[] and b[] can only be the same size before this function is called
+    for (i = 0; i < n; i++) {
+      sum += a[i] * b[i]; // a[] and b[] can only be the same size before this function is called
     }
 
   }
