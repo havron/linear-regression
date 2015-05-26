@@ -5,8 +5,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include <string.h>
-#include <assert.h>
 #define MAX_DATA 100
 
 typedef struct {
