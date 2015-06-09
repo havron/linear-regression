@@ -8,8 +8,9 @@
 #define MAX_DATA 100
 
 // Fixed point arithmetic
-#define SHIFT_AMOUNT 16 // 2^16 = 65536
-#define SHIFT_MASK ((1 << SHIFT_AMOUNT) - 1) // 65535, draw out fraction with bitwise '&'
+#define SHIFT_AMOUNT 8 // 2^8
+#define SCALE (1 << SHIFT_AMOUNT)
+#define DESCALE(x) (double) x / SCALE
 
 typedef struct {
   int x[MAX_DATA]; // independent points
@@ -33,8 +34,11 @@ int sum(int a[MAX_DATA], int n);
 DataSet load_data(FILE *inputFile) {
   int i;
   DataSet data;
+  double a, b;
   for (i = 0; i < MAX_DATA; ++i) {
-    int dataPoints = fscanf(inputFile, "%lf %lf", &data.x[i], &data.y[i]); // How to convert to fixed point arithmetic?
+    int dataPoints = fscanf(inputFile, "%lf %lf", &a, &b);
+    data.x[i] = a*SCALE;
+    data.y[i] = b*SCALE;
     if (dataPoints != 2) {
       if (dataPoints < 0 && feof(inputFile)) {
 	break;
@@ -43,7 +47,7 @@ DataSet load_data(FILE *inputFile) {
 	exit(1);
       }
     }
-    data.n = i;
+    data.n = i + 1; // adjust for index 0
   }
   printf("Loading %d data points ...\n", data.n);
   return data;
@@ -60,9 +64,9 @@ LinRegResult linear_regression(DataSet theData) {
   int sumxy = dotProd(theData.x, theData.y, n); // sum of each x * y
 
   // Compute least-squares best fit straight line
-  result.m = ((n * sumxy - sumx * sumy) << SHIFT_AMOUNT) / ((n * sumxx - sqr(sumx)) << SHIFT_AMOUNT); // slope
-  result.b = ((sumy * sumxx - sumx * sumxy) << SHIFT_AMOUNT) / ((n * sumxx - sqr(sumx)) << SHIFT_AMOUNT); // y-intercept
-  result.r = ((sumxy - sumx * sumy) << SHIFT_AMOUNT / n) / sqrt(((sumxx - sqr(sumx)) << SHIFT_AMOUNT / n) * ((sumyy - sqr(sumy)) << SHIFT_AMOUNT / n)); // correlation
+  result.m = (n * sumxy - sumx * sumy) / (n * sumxx - sqr(sumx)); // slope
+  result.b = (sumy * sumxx - (sumx * sumxy)) / (n * sumxx - sqr(sumx)); // y-intercept
+  result.r = (sumxy - sumx * sumy / n) / sqrt((sumxx - sqr(sumx) / n) * (sumyy - sqr(sumy)/ n)); // correlation
 
   return result;
 }
@@ -84,9 +88,9 @@ int main(int argc, char *argv[]) {
       fclose(input);
      
       LinRegResult linReg = linear_regression(theData);
-      printf("\nSlope   \tm = %d\n", linReg.m >> SHIFT_AMOUNT); // print slope
-      printf("y-intercept\tb = %d\n", linReg.b >> SHIFT_AMOUNT); // print y-intercept
-      printf("Correlation\tr = %d\n", linReg.r >> SHIFT_AMOUNT); // print correlation
+      printf("\nSlope   \tm = %15.6e\n", DESCALE(linReg.m)); // print slope
+      printf("y-intercept\tb = %15.6e\n", DESCALE(linReg.b)); // print y-intercept
+      printf("Correlation\tr = %15.6e\n", DESCALE(linReg.r)); // print correlation
     }
 
   } else {
@@ -104,7 +108,7 @@ int dotProd(int a[MAX_DATA], int b[MAX_DATA], int n) {
   int dotProd = 0;
   int i;
   for (i = 0; i < n; i++) {
-    dotProd += (a[i] * b[i]) << SHIFT_AMOUNT;
+    dotProd += a[i] * b[i];
   }
   return dotProd;
 }
@@ -113,7 +117,7 @@ int sum(int a[MAX_DATA], int n) {
   int sum = 0;
   int i;
   for (i = 0; i < n; i++) {
-    sum += a[i] << SHIFT_AMOUNT;
+    sum += a[i];
   }
   return sum;
 }

@@ -7,4 +7,4 @@ Run the [test data](test.data) with `./linReg test.data`.
 To contact me with any questions about this repository, open an issue on GitHub or email me at havron@virginia.edu.
 
 # Warnings
-First revision of [code](linReg.c) with fixed point arithmetic. DOES NOT COMPILE. Use previous commit to compile.
+Revision of [code](linReg.c) with fixed point arithmetic. Code does not account for overflow, and values are incorrect. Use previous commit to compute linear regression.
