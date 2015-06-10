@@ -5,15 +5,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#define MAX_DATA 100
 
 // Fixed point arithmetic
 #define SCALE (1 << 16) // 2^16
 #define DESCALE(x) (double) x / SCALE
 
 typedef struct {
-  int x[MAX_DATA]; // independent points
-  int y[MAX_DATA]; // dependent points
+  int *x; // independent points
+  int *y; // dependent points
   int n; // number of data points
 } DataSet;
 
@@ -25,19 +24,37 @@ typedef struct {
 
 // forward declarations
 DataSet load_data(FILE *inputFile);
+int count_data(FILE *inputFile);
 LinRegResult linear_regression(DataSet theData);
 int sqr(int x);
-int dotProd(int a[MAX_DATA], int b[MAX_DATA], int n);
-int sum(int a[MAX_DATA], int n);
+int dotProd(int *a, int *b, int n);
+int sum(int *a, int n);
+void clean(DataSet data);
 
 DataSet load_data(FILE *inputFile) {
-  int i;
+  int n = count_data(inputFile);
   DataSet data;
+  data.x = malloc(sizeof(int) * n);
+  data.y = malloc(sizeof(int) * n);
+  data.n = n;
+  printf("Loading %d data points ...\n", data.n);
+
+  int i;
   double a, b;
-  for (i = 0; i < MAX_DATA; ++i) {
-    int dataPoints = fscanf(inputFile, "%lf %lf", &a, &b);
+  for (i = 0; i < data.n; ++i) {
+    fscanf(inputFile, "%lf %lf", &a, &b);
     data.x[i] = a*SCALE;
     data.y[i] = b*SCALE;
+  }
+  
+  return data;
+}
+
+int count_data(FILE *inputFile) {
+  int count = 0;
+  double a, b;
+  while (!feof(inputFile)) {
+    int dataPoints = fscanf(inputFile, "%lf %lf", &a, &b);
     if (dataPoints != 2) {
       if (dataPoints < 0 && feof(inputFile)) {
 	break;
@@ -46,10 +63,10 @@ DataSet load_data(FILE *inputFile) {
 	exit(1);
       }
     }
-    data.n = i + 1; // adjust for index 0
+    count += 1;
   }
-  printf("Loading %d data points ...\n", data.n);
-  return data;
+  rewind(inputFile);
+  return count;
 }
 
 LinRegResult linear_regression(DataSet theData) {
@@ -91,6 +108,7 @@ int main(int argc, char *argv[]) {
       fclose(input);
      
       LinRegResult linReg = linear_regression(theData);
+      clean(theData);
       printf("\nSlope   \tm = %15.6e\n", DESCALE(linReg.m)); // print slope
       printf("y-intercept\tb = %15.6e\n", DESCALE(linReg.b)); // print y-intercept
       printf("Correlation\tr = %15.6e\n", DESCALE(linReg.r)); // print correlation
@@ -107,7 +125,7 @@ int sqr(int x) {
   return x * x;
 }
 
-int dotProd(int a[MAX_DATA], int b[MAX_DATA], int n) {
+int dotProd(int *a, int *b, int n) {
   double dotProd = 0;
   int result = 0;
   int i;
@@ -118,11 +136,16 @@ int dotProd(int a[MAX_DATA], int b[MAX_DATA], int n) {
   return result;
 }
 
-int sum(int a[MAX_DATA], int n) {
+int sum(int *a, int n) {
   int sum = 0;
   int i;
   for (i = 0; i < n; i++) {
     sum += a[i];
   }
   return sum;
+}
+
+void clean(DataSet data) {
+  free(data.x);
+  free(data.y);
 }
