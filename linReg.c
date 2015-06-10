@@ -8,8 +8,7 @@
 #define MAX_DATA 100
 
 // Fixed point arithmetic
-#define SHIFT_AMOUNT 8 // 2^8
-#define SCALE (1 << SHIFT_AMOUNT)
+#define SCALE (1 << 16) // 2^16
 #define DESCALE(x) (double) x / SCALE
 
 typedef struct {
@@ -54,20 +53,24 @@ DataSet load_data(FILE *inputFile) {
 }
 
 LinRegResult linear_regression(DataSet theData) {
-
+  
   LinRegResult result;
   int n = theData.n; // number of data points
-  int sumx = sum(theData.x, n); // sum of x
-  int sumxx = dotProd(theData.x, theData.x, n); // sum of each x squared
-  int sumy = sum(theData.y, n); //sum of y
-  int sumyy = dotProd(theData.y, theData.y, n); // sum of each y squared
-  int sumxy = dotProd(theData.x, theData.y, n); // sum of each x * y
-
+  double sumx = DESCALE(sum(theData.x, n)); // sum of x
+  double sumxx = DESCALE(dotProd(theData.x, theData.x, n)); // sum of each x squared
+  double sumy = DESCALE(sum(theData.y, n)); //sum of y
+  double sumyy = DESCALE(dotProd(theData.y, theData.y, n)); // sum of each y squared
+  double sumxy = DESCALE(dotProd(theData.x, theData.y, n)); // sum of each x * y
+  
+  double m, b, r;
   // Compute least-squares best fit straight line
-  result.m = (n * sumxy - sumx * sumy) / (n * sumxx - sqr(sumx)); // slope
-  result.b = (sumy * sumxx - (sumx * sumxy)) / (n * sumxx - sqr(sumx)); // y-intercept
-  result.r = (sumxy - sumx * sumy / n) / sqrt((sumxx - sqr(sumx) / n) * (sumyy - sqr(sumy)/ n)); // correlation
+  m = (n * sumxy - sumx * sumy) / (n * sumxx - sqr(sumx)); // slope
+  b = (sumy * sumxx - (sumx * sumxy)) / (n * sumxx - sqr(sumx)); // y-intercept
+  r = (sumxy - sumx * sumy / n) / sqrt((sumxx - sqr(sumx) / n) * (sumyy - sqr(sumy)/ n)); // correlation
 
+  result.m = m * SCALE;
+  result.b = b * SCALE;
+  result.r = r * SCALE;
   return result;
 }
 
@@ -105,12 +108,14 @@ int sqr(int x) {
 }
 
 int dotProd(int a[MAX_DATA], int b[MAX_DATA], int n) {
-  int dotProd = 0;
+  double dotProd = 0;
+  int result = 0;
   int i;
   for (i = 0; i < n; i++) {
-    dotProd += a[i] * b[i];
+    dotProd += DESCALE(a[i]) * DESCALE(b[i]);
   }
-  return dotProd;
+  result = dotProd * SCALE;
+  return result;
 }
 
 int sum(int a[MAX_DATA], int n) {
