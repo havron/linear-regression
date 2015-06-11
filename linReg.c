@@ -53,6 +53,7 @@ DataSet load_data(FILE *inputFile) {
 	break;
       } else {
 	fprintf(stderr, "ERROR: Input does not match file format. Check input file.\n");
+	printf("File format exception found at Line %d in file.\n", data.n + 1);
 	exit(1);
       }
     }
@@ -77,7 +78,7 @@ LinRegResult linear_regression(DataSet theData) {
   int n = theData.n; // number of data points
   double sumx = DESCALE(sum(theData.x, n)); // sum of x
   double sumxx = DESCALE(dotProd(theData.x, theData.x, n)); // sum of each x squared
-  double sumy = DESCALE(sum(theData.y, n)); //sum of y
+  double sumy = DESCALE(sum(theData.y, n)); // sum of y
   double sumyy = DESCALE(dotProd(theData.y, theData.y, n)); // sum of each y squared
   double sumxy = DESCALE(dotProd(theData.x, theData.y, n)); // sum of each x * y
   
