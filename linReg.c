@@ -24,37 +24,30 @@ typedef struct {
 
 // forward declarations
 DataSet load_data(FILE *inputFile);
-int count_data(FILE *inputFile);
 LinRegResult linear_regression(DataSet theData);
 int sqr(int x);
 int dotProd(int *a, int *b, int n);
 int sum(int *a, int n);
 void clean(DataSet data);
 
-DataSet load_data(FILE *inputFile) {
-  int n = count_data(inputFile);
-  DataSet data;
-  data.x = malloc(sizeof(int) * n);
-  data.y = malloc(sizeof(int) * n);
-  data.n = n;
-  printf("Loading %d data points ...\n", data.n);
-
-  int i;
-  double a, b;
-  for (i = 0; i < data.n; ++i) {
-    fscanf(inputFile, "%lf %lf", &a, &b);
-    data.x[i] = a*SCALE;
-    data.y[i] = b*SCALE;
+void check_mem(int *x, int *y) {
+ if(x == NULL || y == NULL) {
+    printf("ERROR: Memory allocation failed\n");
+    exit(1);
   }
-  
-  return data;
 }
 
-int count_data(FILE *inputFile) {
-  int count = 0;
+DataSet load_data(FILE *inputFile) {
+  DataSet data;
+  data.x = malloc(sizeof(int));
+  data.y = malloc(sizeof(int));
+  data.n = 0;
+  check_mem(data.x, data.y);
+  
   double a, b;
   while (!feof(inputFile)) {
     int dataPoints = fscanf(inputFile, "%lf %lf", &a, &b);
+    
     if (dataPoints != 2) {
       if (dataPoints < 0 && feof(inputFile)) {
 	break;
@@ -63,10 +56,19 @@ int count_data(FILE *inputFile) {
 	exit(1);
       }
     }
-    count += 1;
+
+    // Update count and resize arrays
+    data.n += 1;
+    data.x = realloc(data.x, sizeof(int) * data.n);
+    data.y = realloc(data.y, sizeof(int) * data.n);
+    check_mem(data.x, data.y);
+    
+    data.x[data.n - 1] = a*SCALE; // -1 for index
+    data.y[data.n - 1] = b*SCALE; // -1 for index
   }
-  rewind(inputFile);
-  return count;
+ 
+  printf("Loading %d data points ...\n", data.n); 
+  return data;
 }
 
 LinRegResult linear_regression(DataSet theData) {

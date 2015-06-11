@@ -8,3 +8,5 @@ To contact me with any questions about this repository, open an issue on GitHub 
 
 # Usage Notes
 Fixed point arithmetic is used in order to support Obliv-C. Note the small loss of accuracy due to fixed point arithmetic for a large input of data.
+
+Dynamic resizing of data point arrays is used in order to allow for efficient processing of large data inputs.
