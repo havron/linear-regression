@@ -5,30 +5,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include "linReg.h"
 
 // Fixed point arithmetic
 #define SCALE (1 << 16) // 2^16
 #define DESCALE(x) (double) x / SCALE
-
-typedef struct {
-  int *x; // independent points
-  int *y; // dependent points
-  int n; // number of data points
-} DataSet;
-
-typedef struct {
-  int m; // slope
-  int b; // y-intercept
-  int r; // correlation constant
-} LinRegResult;
-
-// forward declarations
-DataSet load_data(FILE *inputFile);
-LinRegResult linear_regression(DataSet theData);
-int sqr(int x);
-int dotProd(int *a, int *b, int n);
-int sum(int *a, int n);
-void clean(DataSet data);
 
 void check_mem(int *x, int *y) {
  if(x == NULL || y == NULL) {
