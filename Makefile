@@ -1,3 +1,5 @@
-CFLAGS=-Wall -g -o linReg
-
+CFLAGS=-Wall -g
 LOADLIBES=-lm
+
+./linReg: linReg.c
+
